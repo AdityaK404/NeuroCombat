@@ -1,0 +1,306 @@
+# ==========================================
+# NeuroCombat v5 Base Configuration
+# ==========================================
+
+# System Settings
+system:
+  project_name: "NeuroCombat v5"
+  version: "5.0.0"
+  environment: "development"  # development | staging | production
+  log_level: "INFO"  # DEBUG | INFO | WARNING | ERROR
+
+# Redis Configuration
+redis:
+  url: "redis://localhost:6379"
+  db: 0
+  max_connections: 50
+  socket_timeout: 5
+  socket_connect_timeout: 5
+  
+  # Stream Configuration
+  streams:
+    pose_frames:
+      pattern: "pose_frames:{fighter_id}"
+      maxlen: 1800  # 60s @ 30fps
+      consumer_groups:
+        - motion_workers
+        - replay_workers
+    
+    motion_vectors:
+      pattern: "motion_vectors:{fighter_id}"
+      maxlen: 1800
+      consumer_groups:
+        - seq_workers
+    
+    predictions:
+      pattern: "predictions:{fighter_id}"
+      maxlen: 300  # 10s @ 30fps
+      consumer_groups:
+        - ensemble_workers
+        - commentary_workers
+        - dashboard_workers
+    
+    commentary_events:
+      pattern: "commentary_events"
+      maxlen: 100
+      consumer_groups:
+        - audio_mixer
+        - dashboard_workers
+    
+    system_metrics:
+      pattern: "system_metrics"
+      maxlen: 1000
+      consumer_groups:
+        - prometheus_exporter
+
+# Video Processing
+video:
+  input_source: 0  # 0 for webcam, or path to video file
+  target_fps: 30
+  resolution:
+    width: 1920
+    height: 1080
+  frame_skip: 0  # Process every N-th frame (0 = no skip)
+
+# Pose Extraction
+pose_extraction:
+  model_type: "mediapipe"  # mediapipe | movenet
+  
+  mediapipe:
+    model_complexity: 2  # 0 (lite) | 1 (full) | 2 (heavy)
+    min_detection_confidence: 0.5
+    min_tracking_confidence: 0.5
+    static_image_mode: false
+    smooth_landmarks: true
+    enable_segmentation: false
+  
+  movenet:
+    model_variant: "multipose_lightning"  # singlepose_lightning | singlepose_thunder | multipose_lightning
+    detection_threshold: 0.3
+    max_detections: 2
+  
+  # Performance
+  use_gpu: true
+  batch_size: 1  # Real-time processing
+  inference_device: "cuda:0"  # cuda:0 | cpu
+
+# Dual Fighter Tracking
+tracker:
+  algorithm: "bytetrack"  # bytetrack | deepsort | centroid
+  max_fighters: 2
+  
+  bytetrack:
+    track_thresh: 0.5
+    track_buffer: 30
+    match_thresh: 0.8
+    min_box_area: 100
+  
+  centroid:
+    max_disappeared: 50
+    max_distance: 100
+
+# Motion Features
+motion_features:
+  window_size: 2  # Frames for velocity/acceleration
+  normalize: true
+  compute_joint_angles: true
+  joint_pairs:  # For angle computation
+    - [11, 13, 15]  # Left arm (shoulder-elbow-wrist)
+    - [12, 14, 16]  # Right arm
+    - [23, 25, 27]  # Left leg (hip-knee-ankle)
+    - [24, 26, 28]  # Right leg
+
+# Sequence Model
+sequence_model:
+  model_type: "bilstm"  # bilstm | transformer | hybrid
+  
+  # Model Architecture
+  input_dim: 198  # 33 joints × 3D × 2 (velocity + acceleration)
+  hidden_dim: 128
+  num_layers: 2
+  dropout: 0.3
+  bidirectional: true
+  
+  # Windowing
+  sequence_length: 30  # Frames per prediction
+  stride: 15  # Overlap between windows
+  
+  # Inference
+  batch_size: 4
+  use_gpu: true
+  device: "cuda:0"
+  fp16: true  # Mixed precision for faster inference
+  
+  # Model Paths
+  checkpoint_path: "models/bilstm_v1.pth"
+  onnx_path: "models/bilstm_v1.onnx"
+
+# Transformer Config (alternative)
+transformer:
+  d_model: 256
+  nhead: 4
+  num_encoder_layers: 3
+  dim_feedforward: 512
+  dropout: 0.1
+  activation: "gelu"
+
+# Ensemble Fusion
+ensemble:
+  method: "bayesian"  # bayesian | voting | stacking
+  
+  models:
+    - name: "bilstm"
+      weight: 0.4
+      confidence_threshold: 0.6
+    - name: "transformer"
+      weight: 0.35
+      confidence_threshold: 0.55
+    - name: "cnn_lstm"
+      weight: 0.25
+      confidence_threshold: 0.5
+  
+  # Dynamic weighting
+  adaptive_weights: true
+  update_interval: 100  # Predictions before weight update
+  
+  # Output filtering
+  min_ensemble_confidence: 0.7
+  smoothing_window: 3  # Temporal smoothing
+
+# Move Classes
+classes:
+  labels:
+    - "idle"
+    - "jab"
+    - "cross"
+    - "hook"
+    - "uppercut"
+    - "kick_low"
+    - "kick_mid"
+    - "kick_high"
+    - "knee"
+    - "elbow"
+    - "block"
+    - "dodge"
+    - "clinch"
+    - "takedown"
+    - "ground"
+  
+  # Commentary triggers
+  excitement_levels:
+    knockout: ["uppercut", "kick_high"]
+    high: ["hook", "knee", "elbow", "takedown"]
+    medium: ["cross", "kick_mid", "block"]
+    low: ["jab", "kick_low", "dodge", "idle"]
+
+# Commentary Engine
+commentary:
+  engine: "pyttsx3"  # pyttsx3 | elevenlabs | google_tts
+  
+  pyttsx3:
+    rate: 150  # Words per minute
+    volume: 0.9
+    voice: "default"  # System default voice
+  
+  # Rate limiting
+  max_events_per_second: 2
+  min_time_between_events: 0.5  # Seconds
+  
+  # Templates (simple rule-based)
+  templates:
+    jab: ["Quick jab from {fighter}!", "Nice jab!", "{fighter} with a sharp jab!"]
+    cross: ["Powerful cross!", "{fighter} lands a cross!", "That's a solid cross!"]
+    hook: ["Beautiful hook!", "What a hook from {fighter}!", "Hook to the head!"]
+    uppercut: ["UPPERCUT!", "Devastating uppercut!", "{fighter} with a crushing uppercut!"]
+    kick_high: ["HIGH KICK!", "Head kick attempt!", "That could be a knockout!"]
+    takedown: ["TAKEDOWN!", "{fighter} goes for the takedown!", "Great wrestling!"]
+
+# Dashboard
+dashboard:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true  # Auto-reload (dev only)
+  
+  # WebSocket
+  websocket_path: "/ws"
+  max_connections: 100
+  ping_interval: 30
+  
+  # API
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+  
+  # Features
+  enable_replay: true
+  replay_buffer_seconds: 300  # 5 minutes
+
+# Observability
+logging:
+  format: "json"  # json | text
+  output: "stdout"  # stdout | file
+  file_path: "logs/neurocombat.log"
+  rotation: "100 MB"
+  retention: "7 days"
+  
+  # Structured fields
+  include_timestamp: true
+  include_level: true
+  include_module: true
+  include_trace_id: true
+
+# Prometheus Metrics
+metrics:
+  enabled: true
+  port: 9090
+  path: "/metrics"
+  
+  # Custom metrics
+  collect_system_metrics: true
+  collect_redis_metrics: true
+  collect_gpu_metrics: true
+
+# Distributed Tracing
+tracing:
+  enabled: false  # Enable in production
+  exporter: "jaeger"  # jaeger | zipkin | otlp
+  
+  jaeger:
+    agent_host: "localhost"
+    agent_port: 6831
+    sampler_type: "probabilistic"
+    sampler_param: 0.1  # 10% sampling
+
+# Performance Tuning
+performance:
+  # Async Workers
+  max_workers: 4
+  worker_queue_size: 100
+  
+  # Batching
+  batch_timeout_ms: 100
+  max_batch_size: 10
+  
+  # Back-pressure
+  max_pending_messages: 500
+  drop_frames_on_overload: false
+  
+  # Memory
+  max_memory_mb: 2048
+  enable_memory_profiling: false
+
+# Resource Limits
+resources:
+  pose_extraction:
+    cpu_limit: "2"
+    memory_limit: "4Gi"
+    gpu_memory_mb: 2048
+  
+  sequence_model:
+    cpu_limit: "4"
+    memory_limit: "8Gi"
+    gpu_memory_mb: 4096
+  
+  dashboard:
+    cpu_limit: "1"
+    memory_limit: "1Gi"

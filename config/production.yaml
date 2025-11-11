@@ -1,0 +1,39 @@
+# ==========================================
+# Production Environment Overrides
+# ==========================================
+
+system:
+  environment: "production"
+  log_level: "INFO"
+
+redis:
+  url: "${REDIS_URL}"  # From environment variable
+  max_connections: 100
+
+video:
+  input_source: "${VIDEO_SOURCE}"  # RTSP stream or file path
+
+pose_extraction:
+  use_gpu: true
+  inference_device: "cuda:0"
+
+sequence_model:
+  batch_size: 8  # Larger batch for throughput
+  fp16: true
+
+logging:
+  output: "file"
+  file_path: "/var/log/neurocombat/app.log"
+
+tracing:
+  enabled: true
+  sampler_param: 0.05  # 5% sampling in prod
+
+dashboard:
+  reload: false
+  cors_origins:
+    - "https://neurocombat.example.com"
+
+performance:
+  max_workers: 8
+  drop_frames_on_overload: true  # Graceful degradation

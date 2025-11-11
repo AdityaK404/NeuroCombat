@@ -1,0 +1,57 @@
+# ==========================================
+# Dockerfile for Pose Extraction (GPU)
+# ==========================================
+
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+# Metadata
+LABEL maintainer="NeuroCombat Team"
+LABEL version="5.0.0"
+LABEL description="Pose extraction worker with MediaPipe/MoveNet"
+
+# Python version
+ARG PYTHON_VERSION=3.11
+
+# Environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python${PYTHON_VERSION} \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    libopencv-dev \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Install Python dependencies
+COPY pyproject.toml poetry.lock* ./
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-dev --no-interaction --no-ansi
+
+# Copy application code
+COPY src/ ./src/
+COPY config/ ./config/
+COPY models/ ./models/
+
+# Set Python path
+ENV PYTHONPATH=/app/src:$PYTHONPATH
+
+# Run pose extraction worker
+CMD ["python", "-m", "neurocombat.modules.pose_extraction.worker"]

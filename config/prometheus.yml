@@ -1,0 +1,70 @@
+# ==========================================
+# Prometheus Configuration
+# ==========================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'neurocombat-dev'
+    environment: 'development'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  
+  # NeuroCombat components
+  - job_name: 'neurocombat_pose_extraction'
+    static_configs:
+      - targets: ['pose_extraction:9090']
+        labels:
+          component: 'pose_extraction'
+  
+  - job_name: 'neurocombat_motion_features'
+    static_configs:
+      - targets: ['motion_features:9090']
+        labels:
+          component: 'motion_features'
+  
+  - job_name: 'neurocombat_sequence_model'
+    static_configs:
+      - targets: ['sequence_model:9090']
+        labels:
+          component: 'sequence_model'
+  
+  - job_name: 'neurocombat_ensemble'
+    static_configs:
+      - targets: ['ensemble:9090']
+        labels:
+          component: 'ensemble'
+  
+  - job_name: 'neurocombat_commentary'
+    static_configs:
+      - targets: ['commentary:9090']
+        labels:
+          component: 'commentary'
+  
+  - job_name: 'neurocombat_dashboard'
+    static_configs:
+      - targets: ['dashboard:8000']
+        labels:
+          component: 'dashboard'
+    metrics_path: '/metrics'
+  
+  # Redis monitoring (requires redis_exporter)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis_exporter:9121']
+
+# Recording rules (optional)
+# rule_files:
+#   - 'alerts.yml'

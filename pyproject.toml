@@ -1,0 +1,70 @@
+[tool.poetry]
+name = "neurocombat-v5"
+version = "5.0.0"
+description = "Real-time MMA move recognition system with dual-fighter tracking and live commentary"
+authors = ["NeuroCombat Team"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "neurocombat", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.5"
+pydantic-settings = "^2.1"
+redis = {extras = ["hiredis"], version = "^5.0"}
+numpy = "^1.26"
+opencv-python = "^4.8"
+mediapipe = "^0.10"
+torch = "^2.1"
+torchvision = "^0.16"
+fastapi = "^0.104"
+uvicorn = {extras = ["standard"], version = "^0.24"}
+websockets = "^12.0"
+pyttsx3 = "^2.90"
+structlog = "^23.2"
+prometheus-client = "^0.19"
+opentelemetry-api = "^1.21"
+opentelemetry-sdk = "^1.21"
+opentelemetry-exporter-jaeger = "^1.21"
+psutil = "^5.9"
+msgpack = "^1.0"
+pyyaml = "^6.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-asyncio = "^0.21"
+pytest-cov = "^4.1"
+black = "^23.11"
+ruff = "^0.1"
+mypy = "^1.7"
+locust = "^2.18"
+jupyter = "^1.0"
+ipykernel = "^6.27"
+
+[tool.poetry.scripts]
+neurocombat = "neurocombat.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["src/neurocombat/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
